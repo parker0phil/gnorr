@@ -4,7 +4,6 @@ import com.parker0phil.gnorr.NumericalResponses
 import com.parker0phil.gnorr.RangeCriteria
 import ratpack.jackson.JacksonModule
 
-import static com.parker0phil.gnorr.JsonSchema.jsonSchema
 import static ratpack.groovy.Groovy.ratpack
 import static ratpack.jackson.Jackson.jsonNode
 
@@ -41,9 +40,7 @@ ratpack {
                 }
 
                 get(":criteria:${RangeCriteria.PATH_MATCHER}") {
-                    def range = RangeCriteria.from(pathTokens.get('criteria'))
-
-                    range.with {
+                    RangeCriteria.from(pathTokens.get('criteria')).with {
                         return 200 {
                             [
                                     book: books[fromIndex..toIndex],
@@ -56,36 +53,27 @@ ratpack {
                 get(":namedIdentifier:${NamedIdentifier.PATH_MATCHER}") {
                     def namedId = NamedIdentifier.from(pathTokens.get('namedIdentifier'))
                     def foundId = books.find { "${it[namedId.identifierName]}" == "$namedId.identifierValue" }?.id
-                    return 307 >> {"/library/book/@$foundId"}
+                    return 307 >> { "/library/book/@$foundId" }
                 }
 
                 handler(':identifier:@.*') {
+                    String identifier = pathTokens.get('identifier') - '@'
+                    def requestBody = parse jsonNode()
                     byMethod {
                         get {
-                            String identifier = pathTokens.get('identifier') - '@'
-                            def book = books.find { "$it.id" == identifier }
-
-                            if (book) {
-                                return 200 { [book: book] }
-                            }
-                            return 404 {}
+                            def book = books.find { "${it.id}" == identifier }
+                            return (book) ? 200 { [book: book] } : 404 {}
                         }
                         put {
-                            //def validity = parse jsonSchema()
-                            def requestBody = parse jsonNode()
-                            String identifier = pathTokens.get('identifier') - '@'
-                            if (books.find { "$it.id" == identifier }) {
+                            if (books.find { "${it.id}" == identifier }) {
                                 return 409 >> { "/library/book/@$identifier" }
                             }
                             books << [id: identifier, name: requestBody.get('name')]
-
                             response.headers.add('Location', Application.uri(context, "/library/book/@$identifier"))
                             return 201 { [book: books.find { "$it.id" == identifier }] }
                         }
                         post {
-                            def requestBody = parse jsonNode()
-                            String identifier = pathTokens.get('identifier') - '@'
-                            def book = books.find { "$it.id" == identifier }
+                            def book = books.find { "${it.id}" == identifier }
                             if (book) {
                                 book.name = requestBody.get('name')
                                 return 200 { [book: book] }
@@ -93,26 +81,18 @@ ratpack {
                             return 404 {}
                         }
                         patch {
-                            def requestBody = parse jsonNode()
-                            String identifier = pathTokens.get('identifier') - '@'
-                            def book = books.find { "$it.id" == identifier }
+                            def book = books.find { "${it.id}" == identifier }
                             if (book) {
                                 book.other = requestBody.get('other')
-
                                 return 200 { [book: book] }
                             }
                             return 404 {}
                         }
                         delete {
-                            String identifier = pathTokens.get('identifier') - '@'
-                            books.removeAll { "$it.id" == identifier }
+                            books.removeAll { "${it.id}" == identifier }
                             return 200 {}
                         }
                     }
-                }
-
-                get(':identifier') {
-                    return 307 >> { "/library/book/@${pathTokens.get('identifier')}" }
                 }
             }
         }
